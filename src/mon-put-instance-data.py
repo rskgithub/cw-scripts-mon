@@ -2,6 +2,7 @@
 
 import re
 import argparse
+import subprocess
 
 
 USAGE = '''\
@@ -72,7 +73,7 @@ def parse_args():
     ap.add_argument('--mem-avail', dest='report_mem_avail', action='store_true')
     ap.add_argument('--swap-util', dest='report_swap_util', action='store_true')
     ap.add_argument('--swap-used', dest='report_swap_used', action='store_true')
-    #ap.add_argument('--disk-path:s' => \@mount_path')
+    ap.add_argument('--disk-path', dest='mount_path', nargs='+')
     ap.add_argument('--disk-space-util', dest='report_disk_util', action='store_true')
     ap.add_argument('--disk-space-used', dest='report_disk_used', action='store_true')
     ap.add_argument('--disk-space-avail', dest='report_disk_avail', action='store_true')
@@ -164,6 +165,70 @@ def collect_memory_and_swap_metrics(args):
         add_metric('SwapUsed', mem_units, swap_used / mem_unit_div)
 
 
-if __name__ == '__main__':
+def collect_disk_space_metrics(args):
+
+    # decide on the reporting units for disk space usage
+    disk_units = 'Gigabytes'
+    disk_unit_div = GIGA
+    #if (!defined($disk_units) || lc($disk_units) eq 'gigabytes') {
+    #  $disk_units = 'Gigabytes';
+    #  $disk_unit_div = GIGA;
+    #}
+    #elsif (lc($disk_units) eq 'bytes') {
+    #  $disk_units = 'Bytes';
+    #  $disk_unit_div = 1;
+    #}
+    #elsif (lc($disk_units) eq 'kilobytes') {
+    #  $disk_units = 'Kilobytes';
+    #  $disk_unit_div = KILO;
+    #}
+    #elsif (lc($disk_units) eq 'megabytes') {
+    #  $disk_units = 'Megabytes';
+    #  $disk_unit_div = MEGA;
+    #}
+    #else {
+    #  exit_with_error("Unsupported disk space units '$disk_units'. Use Bytes, Kilobytes, Megabytes, or Gigabytes.");
+    #}
+
+    # collect disk space metrics
+    raw_df = subprocess.check_output(
+        ['df', '-klP'] + args.mount_path
+    )
+
+    df_lines = raw_df.decode().splitlines()[1:]
+    for line in df_lines:
+        fields = line.split()
+        # Result of df is reported in 1k blocks
+        disk_total = int(fields[1]) * KILO
+        disk_used = int(fields[2]) * KILO
+        disk_avail = int(fields[3]) * KILO
+        fsystem = fields[0]
+        mount = fields[5]
+
+        if args.report_disk_util:
+            disk_util = 0
+            disk_util = 100 * disk_used / disk_total if disk_total > 0 else 0
+            add_metric('DiskSpaceUtilization', 'Percent', disk_util, fsystem, mount)
+        if args.report_disk_used:
+            add_metric('DiskSpaceUsed', disk_units, disk_used / disk_unit_div, fsystem, mount)
+        if args.report_disk_avail:
+            add_metric('DiskSpaceAvailable', disk_units, disk_avail / disk_unit_div, fsystem, mount)
+
+
+def main():
+
+    # parse and validate args
     args = parse_args()
-    collect_memory_and_swap_metrics(args)
+    report_mem = bool(args.report_mem_util or args.report_disk_used or args.report_mem_avail)
+    report_disk = bool(args.report_disk_util or args.report_disk_used or args.report_disk_avail)
+    if report_disk and not args.mount_path:
+        raise SystemExit('Value of disk path is not specified.')
+
+    if report_mem:
+        collect_memory_and_swap_metrics(args)
+    if report_disk:
+        collect_disk_space_metrics(args)
+
+
+if __name__ == '__main__':
+    main()
