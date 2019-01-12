@@ -60,8 +60,16 @@ http://docs.amazonwebservices.com/AmazonCloudWatch/latest/DeveloperGuide/mon-scr
 '''
 
 KILO = 1024
-MEGA = 1048576
-GIGA = 1073741824
+MEGA = KILO * 1024
+GIGA = MEGA * 1024
+
+
+UNITS = {
+    'Bytes': 1,
+    'Kilobytes': KILO,
+    'Megabytes': MEGA,
+    'Gigabytes': GIGA,
+}
 
 
 def parse_args():
@@ -79,8 +87,8 @@ def parse_args():
     ap.add_argument('--disk-space-avail', dest='report_disk_avail', action='store_true')
     #ap.add_argument('--auto-scaling:s', dest='auto_scaling')
     #ap.add_argument('--aggregated:s', dest='aggregated')
-    ap.add_argument('--memory-units', dest='mem_units')
-    ap.add_argument('--disk-space-units', dest='disk_units')
+    ap.add_argument('--memory-units', dest='mem_units', choices=UNITS.keys(), default='Megabytes')
+    ap.add_argument('--disk-space-units', dest='disk_units', choices=UNITS.keys(), default='Gigabytes')
     ap.add_argument('--mem-used-incl-cache-buff', dest='mem_used_incl_cache_buff', action='store_true')
     ap.add_argument('--verify', dest='verify', action='store_true')
     ap.add_argument('--from-cron', dest='from_cron', action='store_true')
@@ -102,27 +110,8 @@ def add_metric(*args, **kwargs):
 def collect_memory_and_swap_metrics(args):
 
     # decide on the reporting units for memory and swap usage
-    mem_units = 'Megabytes'
-    mem_unit_div = MEGA
-    #if (!defined($mem_units) || lc($mem_units) eq 'megabytes') {
-    #  $mem_units = 'Megabytes';
-    #  $mem_unit_div = MEGA;
-    #}
-    #elsif (lc($mem_units) eq 'bytes') {
-    #  $mem_units = 'Bytes';
-    #  $mem_unit_div = 1;
-    #}
-    #elsif (lc($mem_units) eq 'kilobytes') {
-    #  $mem_units = 'Kilobytes';
-    #  $mem_unit_div = KILO;
-    #}
-    #elsif (lc($mem_units) eq 'gigabytes') {
-    #  $mem_units = 'Gigabytes';
-    #  $mem_unit_div = GIGA;
-    #}
-    #else {
-    #  exit_with_error("Unsupported memory units '$mem_units'. Use Bytes, Kilobytes, Megabytes, or Gigabytes.");
-    #}
+    mem_units = args.mem_units
+    mem_unit_div = UNITS[mem_units]
 
     # collect memory and swap metrics
     with open('/proc/meminfo', 'r') as m:
@@ -167,28 +156,13 @@ def collect_memory_and_swap_metrics(args):
 
 def collect_disk_space_metrics(args):
 
+    # exit on empty mount paths
+    if not args.mount_path:
+        raise SystemExit('Disk path is not specified')
+
     # decide on the reporting units for disk space usage
-    disk_units = 'Gigabytes'
-    disk_unit_div = GIGA
-    #if (!defined($disk_units) || lc($disk_units) eq 'gigabytes') {
-    #  $disk_units = 'Gigabytes';
-    #  $disk_unit_div = GIGA;
-    #}
-    #elsif (lc($disk_units) eq 'bytes') {
-    #  $disk_units = 'Bytes';
-    #  $disk_unit_div = 1;
-    #}
-    #elsif (lc($disk_units) eq 'kilobytes') {
-    #  $disk_units = 'Kilobytes';
-    #  $disk_unit_div = KILO;
-    #}
-    #elsif (lc($disk_units) eq 'megabytes') {
-    #  $disk_units = 'Megabytes';
-    #  $disk_unit_div = MEGA;
-    #}
-    #else {
-    #  exit_with_error("Unsupported disk space units '$disk_units'. Use Bytes, Kilobytes, Megabytes, or Gigabytes.");
-    #}
+    disk_units = args.disk_units
+    disk_unit_div = UNITS[disk_units]
 
     # collect disk space metrics
     raw_df = subprocess.check_output(
@@ -219,10 +193,14 @@ def main():
 
     # parse and validate args
     args = parse_args()
-    report_mem = bool(args.report_mem_util or args.report_disk_used or args.report_mem_avail)
+    report_mem = bool(args.report_mem_util or args.report_disk_used or args.report_mem_avail or args.report_swap_util or args.report_swap_used)
     report_disk = bool(args.report_disk_util or args.report_disk_used or args.report_disk_avail)
     if report_disk and not args.mount_path:
         raise SystemExit('Value of disk path is not specified.')
+    if args.mount_path and not report_disk:
+        raise SystemExit('Metrics to report disk space are provided but disk path is not specified.')
+    if not (report_mem or report_disk):
+        raise SystemExit('No metrics specified for collection and submission to CloudWatch.')
 
     if report_mem:
         collect_memory_and_swap_metrics(args)
