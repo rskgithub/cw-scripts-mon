@@ -3,6 +3,7 @@
 import re
 import argparse
 import subprocess
+from urllib.request import urlopen
 
 
 USAGE = '''\
@@ -72,6 +73,17 @@ UNITS = {
 }
 
 
+def is_running_on_ec2():
+    # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify_ec2_instances.html
+    try:
+        return open('/sys/hypervisor/uuid').read().startswith('ec2')
+    except IOError:  # FileNotFoundError
+        return False
+
+
+EC2 = is_running_on_ec2()
+
+
 def parse_args():
     ap = argparse.ArgumentParser()
     #ap.add_argument('--help', dest='show_help', action='store_true')
@@ -101,6 +113,29 @@ def parse_args():
 
     args = ap.parse_args()
     return args
+
+
+def get_instance_id():
+    if EC2:
+        return get_instance_id_ec2()
+    else:
+        return get_instance_id_cloud_init()
+
+
+def get_instance_id_ec2():
+    resp = urlopen('http://169.254.169.254/latest/meta-data/instance-id')
+    instance_id = resp.decode().rstrip()
+    return instance_id
+
+
+def get_instance_id_cloud_init():
+    # CentOS-7-x86_64-GenericCloud-1809 (https://cloud.centos.org/centos/7/images/)
+    # uses cloud-init 0.7.9. (https://cloudinit.readthedocs.io/en/0.7.9/topics/dir_layout.html)
+    # This is a quite old version and should serve other distributions as well.
+    # Don't reply on the directory layout of newer versions.
+    with open('/var/lib/cloud/data/instance-id') as f:
+        instance_id = f.read().rstrip()
+    return instance_id
 
 
 def add_metric(*args, **kwargs):
