@@ -3,7 +3,11 @@
 import re
 import argparse
 import subprocess
+from pprint import pprint
+from datetime import datetime
 from urllib.request import urlopen
+
+import boto3
 
 
 USAGE = '''\
@@ -73,6 +77,9 @@ UNITS = {
 }
 
 
+METRIC_DATA = []
+
+
 def is_running_on_ec2():
     # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify_ec2_instances.html
     try:
@@ -138,8 +145,43 @@ def get_instance_id_cloud_init():
     return instance_id
 
 
-def add_metric(*args, **kwargs):
-    print(args, kwargs)
+def add_metric(name, unit, value, xdims=None):
+
+    # xdims = extra dimensions?
+    xdims = xdims or {}
+
+    # constrct a MetricDatum dict and put it into the MetricData list
+    # https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html
+    # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch.html#CloudWatch.Client.put_metric_data
+    instance_id = get_instance_id()
+    dims = {
+        'InstanceId': instance_id
+    }
+    dims.update(xdims)
+    dimensions = [{'Name': k, 'Value': v} for k, v in dims.items()]
+    timestamp = datetime.utcnow()
+    metric_datum = {
+        'MetricName': name,
+        'Dimensions': dimensions,
+        'Timestamp': timestamp,
+        'Values': [value],
+        'Unit': unit,
+    }
+    METRIC_DATA.append(metric_datum)
+
+
+def put_metric():
+
+    if not METRIC_DATA:
+        return
+
+    client = boto3.client('cloudwatch')
+    resp = client.put_metric_data(
+        Namespace='System/Linux',
+        MetricData=METRIC_DATA,
+    )
+    req_id = resp['ResponseMetadata']['RequestId']
+    return req_id
 
 
 def collect_memory_and_swap_metrics(args):
@@ -214,14 +256,18 @@ def collect_disk_space_metrics(args):
         fsystem = fields[0]
         mount = fields[5]
 
+        xdims = {
+            'Filesystem': fsystem,
+            'MountPath': mount,
+        }
         if args.report_disk_util:
             disk_util = 0
             disk_util = 100 * disk_used / disk_total if disk_total > 0 else 0
-            add_metric('DiskSpaceUtilization', 'Percent', disk_util, fsystem, mount)
+            add_metric('DiskSpaceUtilization', 'Percent', disk_util, xdims=xdims)
         if args.report_disk_used:
-            add_metric('DiskSpaceUsed', disk_units, disk_used / disk_unit_div, fsystem, mount)
+            add_metric('DiskSpaceUsed', disk_units, disk_used / disk_unit_div, xdims=xdims)
         if args.report_disk_avail:
-            add_metric('DiskSpaceAvailable', disk_units, disk_avail / disk_unit_div, fsystem, mount)
+            add_metric('DiskSpaceAvailable', disk_units, disk_avail / disk_unit_div, xdims=xdims)
 
 
 def main():
@@ -241,6 +287,14 @@ def main():
         collect_memory_and_swap_metrics(args)
     if report_disk:
         collect_disk_space_metrics(args)
+
+    if args.verify:
+        pprint(METRIC_DATA)
+        print('Verification completed successfully. No actual metrics sent to CloudWatch.')
+        raise SystemExit()
+    else:
+        req_id = put_metric()
+        print('Successfully reported metrics to CloudWatch. Reference Id:', req_id)
 
 
 if __name__ == '__main__':
