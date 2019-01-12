@@ -1,4 +1,4 @@
-Python version of [aws-scripts-mon](https://aws.amazon.com/code/amazon-cloudwatch-monitoring-scripts-for-linux/).
+Python port of [aws-scripts-mon](https://aws.amazon.com/code/amazon-cloudwatch-monitoring-scripts-for-linux/).
 
 New features comparing to the original Perl version:
 
