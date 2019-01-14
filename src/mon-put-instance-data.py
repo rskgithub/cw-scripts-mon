@@ -184,9 +184,6 @@ def put_metric():
     if not METRIC_DATA:
         return
 
-    if not HAS_BOTO:
-        raise SystemExit('boto3 required for reporting metrics to CloudWatch')
-
     client = boto3.client('cloudwatch')
     resp = client.put_metric_data(
         Namespace='System/Linux',
@@ -300,11 +297,15 @@ def main():
     if report_disk:
         collect_disk_space_metrics(args)
 
+    if not HAS_BOTO:
+        print('WARNING: boto3 is not available.')
     if args.verify:
         pprint(METRIC_DATA)
         print('Verification completed successfully. No actual metrics sent to CloudWatch.')
         raise SystemExit()
     else:
+        if not HAS_BOTO:
+            raise SystemExit('boto3 required for reporting metrics to CloudWatch.')
         req_id = put_metric()
         if not args.from_cron:
             print(f'Successfully reported metrics to CloudWatch. Reference Id: {req_id}')
