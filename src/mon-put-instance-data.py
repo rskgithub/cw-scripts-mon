@@ -20,6 +20,7 @@ Examples
 '''
 
 import re
+import random
 import argparse
 import subprocess
 from time import sleep
@@ -344,7 +345,10 @@ def main():
     else:
         if not HAS_BOTO:
             raise SystemExit('boto3 required for reporting metrics to CloudWatch.')
-        req_id = put_metric()
+        if args.from_cron:
+            # avoid a storm of calls at the beginning of a minute
+            sleep(random.randint(0, 20))
+            req_id = put_metric()
         if not args.from_cron:
             print(f'Successfully reported metrics to CloudWatch. Reference Id: {req_id}')
 
