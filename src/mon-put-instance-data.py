@@ -301,7 +301,8 @@ def main():
         raise SystemExit()
     else:
         req_id = put_metric()
-        print(f'Successfully reported metrics to CloudWatch. Reference Id: {req_id}')
+        if not args.from_cron:
+            print(f'Successfully reported metrics to CloudWatch. Reference Id: {req_id}')
 
 
 if __name__ == '__main__':
