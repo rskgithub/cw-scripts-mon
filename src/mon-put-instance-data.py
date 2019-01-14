@@ -7,7 +7,11 @@ from pprint import pprint
 from datetime import datetime
 from urllib.request import urlopen
 
-import boto3
+try:
+    import boto3
+    HAS_BOTO = True
+except ModuleNotFoundError:
+    HAS_BOTO = False
 
 
 USAGE = '''\
@@ -174,6 +178,9 @@ def put_metric():
 
     if not METRIC_DATA:
         return
+
+    if not HAS_BOTO:
+        raise SystemExit('boto3 required for reporting metrics to CloudWatch')
 
     client = boto3.client('cloudwatch')
     resp = client.put_metric_data(
