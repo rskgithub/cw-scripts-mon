@@ -14,7 +14,7 @@ Examples
 
  To set a five-minute cron schedule to report memory and disk space utilization to CloudWatch
 
-  */5 * * * * ~/cw-scripts-mon/mon-put-instance-data.py --mem-util --disk-space-util --disk-path=/ --from-cron
+  */5 * * * * /opt/cw-scripts-mon/mon-put-instance-data.py --mem-util --disk-space-util --disk-path=/ --from-cron
 
   A complementary systemd.timer unit is provided in contrib/ directory, if you do not want to use cron.
 '''
@@ -169,7 +169,7 @@ def add_metric(name, unit, value, xdims=None):
     # xdims = extra dimensions?
     xdims = xdims or {}
 
-    # constrct a MetricDatum dict and put it into the MetricData list
+    # construct a MetricDatum dict and put it into the MetricData list
     # https://docs.aws.amazon.com/AmazonCloudWatch/latest/APIReference/API_MetricDatum.html
     # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch.html#CloudWatch.Client.put_metric_data
     instance_id = get_instance_id()
