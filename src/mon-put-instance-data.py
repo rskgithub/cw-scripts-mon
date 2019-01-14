@@ -22,6 +22,7 @@ Examples
 import re
 import argparse
 import subprocess
+from time import sleep
 from pprint import pprint
 from datetime import datetime
 from urllib.request import urlopen
@@ -62,6 +63,10 @@ EC2 = is_running_on_ec2()
 
 def parse_args():
     ap = argparse.ArgumentParser()
+    ap.add_argument(
+        '--cpu-util', dest='report_cpu_util', action='store_true',
+        help='Reports CPU utilization in percentages.'
+    )
     ap.add_argument(
         '--mem-util', dest='report_mem_util', action='store_true',
         help='Reports memory utilization in percentages.'
@@ -111,6 +116,10 @@ def parse_args():
     ap.add_argument(
         '--mem-used-incl-cache-buff', dest='mem_used_incl_cache_buff', action='store_true',
         help='Count memory that is cached and in buffers as used.'
+    )
+    ap.add_argument(
+        '--cpu-sample-interval', type=float, default=1.0,
+        help='Sample interval when collecting CPU utilization metrics.'
     )
     ap.add_argument(
         '--verify', dest='verify', action='store_true',
@@ -270,7 +279,6 @@ def collect_disk_space_metrics(args):
             'MountPath': mount,
         }
         if args.report_disk_util:
-            disk_util = 0
             disk_util = 100 * disk_used / disk_total if disk_total > 0 else 0
             add_metric('DiskSpaceUtilization', 'Percent', disk_util, xdims=xdims)
         if args.report_disk_used:
@@ -279,23 +287,53 @@ def collect_disk_space_metrics(args):
             add_metric('DiskSpaceAvailable', disk_units, disk_avail / disk_unit_div, xdims=xdims)
 
 
+def collect_cpu_metrics(args):
+
+    def _sample():
+        with open('/proc/stat', 'r') as f:
+            raw_stat = f.read()
+        # user nice system idle iowait irq  softirq steal guest guest_nice
+        #  0    1     2      3     4    5      6      7     8       9
+        stats = [int(i) for i in raw_stat.splitlines()[0].split()[1:]]
+        total = sum(stats[:8])
+        idle = stats[3] + stats[4]
+        busy = total - idle
+        return (total, busy)
+
+    # Based on the Linux implemention of psutil
+    total1, busy1 = _sample()
+    sleep(args.cpu_sample_interval)
+    total2, busy2 = _sample()
+    total_delta, busy_delta = max(0, total2 - total1), max(0, busy2 - busy1)
+    try:
+        cpu_util = 100 * busy_delta / total_delta
+    except ZeroDivisionError:
+        cpu_util = 0.0
+
+    if args.report_cpu_util:
+        add_metric('CPUUtilization', 'Percent', cpu_util)
+
+
 def main():
 
     # parse and validate args
     args = parse_args()
     report_mem = bool(args.report_mem_util or args.report_mem_used or args.report_mem_avail or args.report_swap_util or args.report_swap_used)
     report_disk = bool(args.report_disk_util or args.report_disk_used or args.report_disk_avail)
+    report_cpu = bool(args.report_cpu_util)
     if report_disk and not args.mount_path:
         raise SystemExit('Value of disk path is not specified.')
     if args.mount_path and not report_disk:
         raise SystemExit('Metrics to report disk space are provided but disk path is not specified.')
-    if not (report_mem or report_disk):
+    if not (report_mem or report_disk or report_cpu):
         raise SystemExit('No metrics specified for collection and submission to CloudWatch. Try --help.')
 
     if report_mem:
         collect_memory_and_swap_metrics(args)
     if report_disk:
         collect_disk_space_metrics(args)
+    if report_cpu:
+        collect_cpu_metrics(args)
 
     if not HAS_BOTO:
         print('WARNING: boto3 is not available.')
