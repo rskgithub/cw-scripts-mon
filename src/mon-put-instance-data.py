@@ -215,7 +215,7 @@ def collect_memory_and_swap_metrics(args):
     mem_buffers = meminfo['Buffers'] * KILO
     mem_avail = mem_free
 
-    if args.mem_used_incl_cache_buff:
+    if not args.mem_used_incl_cache_buff:
         mem_avail += mem_cached + mem_buffers
 
     mem_used = mem_total - mem_avail
