@@ -1,0 +1,10 @@
+[Unit]
+Description=Collect and report Linux system metrics to CloudWatch
+
+[Timer]
+OnCalendar=*:0/5
+Persistent=true
+Unit=cw-scripts-mon.service
+
+[Install]
+WantedBy=timers.target

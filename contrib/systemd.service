@@ -1,0 +1,8 @@
+[Unit]
+Description=Collect and report Linux system metrics to CloudWatch
+
+[Service]
+Type=oneshot
+#Environment=AWS_ACCESS_KEY=AKXXXXX AWS_SECRET_KEY=XXXXX
+ExecStart=/opt/cw-scripts-mon/mon-put-instance-data.py --mem-util --mem-used --mem-avail --disk-path=/ --disk-space-util --disk-space-used --disk-space-avail
+TimeoutSec=60
