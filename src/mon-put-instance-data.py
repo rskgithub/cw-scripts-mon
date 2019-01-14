@@ -131,7 +131,7 @@ def get_instance_id():
 
 def get_instance_id_ec2():
     resp = urlopen('http://169.254.169.254/latest/meta-data/instance-id')
-    instance_id = resp.decode().rstrip()
+    instance_id = resp.read().decode().rstrip()
     return instance_id
 
 
@@ -274,7 +274,7 @@ def main():
 
     # parse and validate args
     args = parse_args()
-    report_mem = bool(args.report_mem_util or args.report_disk_used or args.report_mem_avail or args.report_swap_util or args.report_swap_used)
+    report_mem = bool(args.report_mem_util or args.report_mem_used or args.report_mem_avail or args.report_swap_util or args.report_swap_used)
     report_disk = bool(args.report_disk_util or args.report_disk_used or args.report_disk_avail)
     if report_disk and not args.mount_path:
         raise SystemExit('Value of disk path is not specified.')
