@@ -88,7 +88,7 @@ def is_running_on_ec2():
     # https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/identify_ec2_instances.html
     try:
         return open('/sys/hypervisor/uuid').read().startswith('ec2')
-    except IOError:  # FileNotFoundError
+    except FileNotFoundError:
         return False
 
 
@@ -301,7 +301,7 @@ def main():
         raise SystemExit()
     else:
         req_id = put_metric()
-        print('Successfully reported metrics to CloudWatch. Reference Id:', req_id)
+        print(f'Successfully reported metrics to CloudWatch. Reference Id: {req_id}')
 
 
 if __name__ == '__main__':
