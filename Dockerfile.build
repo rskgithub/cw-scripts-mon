@@ -1,0 +1,9 @@
+FROM python:3.6-jessie
+
+WORKDIR /repo
+
+COPY . .
+
+RUN pip install PyInstaller==3.4 -r requirements.txt
+
+RUN pyinstaller --clean --onefile src/mon-put-instance-data.py
