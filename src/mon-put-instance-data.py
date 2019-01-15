@@ -28,11 +28,7 @@ from pprint import pprint
 from datetime import datetime
 from urllib.request import urlopen
 
-try:
-    import boto3
-    HAS_BOTO = True
-except ModuleNotFoundError:
-    HAS_BOTO = False
+import boto3
 
 
 KILO = 1024
@@ -336,15 +332,11 @@ def main():
     if report_cpu:
         collect_cpu_metrics(args)
 
-    if not HAS_BOTO:
-        print('WARNING: boto3 is not available.')
     if args.verify:
         pprint(METRIC_DATA)
         print('Verification completed successfully. No actual metrics sent to CloudWatch.')
         raise SystemExit()
     else:
-        if not HAS_BOTO:
-            raise SystemExit('boto3 required for reporting metrics to CloudWatch.')
         if args.from_cron:
             # avoid a storm of calls at the beginning of a minute
             sleep(random.randint(0, 20))
