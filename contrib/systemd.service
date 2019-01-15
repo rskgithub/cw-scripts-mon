@@ -3,7 +3,8 @@ Description=Collect and report Linux system metrics to CloudWatch
 
 [Service]
 Type=oneshot
-#Environment=AWS_ACCESS_KEY=AKXXXXX AWS_SECRET_KEY=XXXXX
+# Ref: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/configuration.html#environment-variable-configuration
+#Environment=AWS_ACCESS_KEY_ID=AKXXXXX AWS_SECRET_ACCESS_KEY=XXXXX AWS_DEFAULT_REGION=XXX
 EnvironmentFile=-/opt/cw-scripts-mon/env
 ExecStart=/opt/cw-scripts-mon/mon-put-instance-data.py --mem-util --mem-used --mem-avail --disk-path=/ --disk-space-util --disk-space-used --disk-space-avail
 TimeoutSec=60
