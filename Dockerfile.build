@@ -6,4 +6,4 @@ COPY . .
 
 RUN pip install PyInstaller==3.4 -r requirements.txt
 
-RUN pyinstaller --clean --onefile src/mon-put-instance-data.py
+RUN pyinstaller --clean --onefile --hidden-import configparser src/mon-put-instance-data.py
