@@ -155,6 +155,9 @@ def get_instance_id_cloud_init():
     # uses cloud-init 0.7.9. (https://cloudinit.readthedocs.io/en/0.7.9/topics/dir_layout.html)
     # This is a quite old version and should serve other distributions as well.
     # Don't reply on the directory layout of newer versions.
+    # Note: CentOS has rebased its cloud-init source to upstream 18.2 on 2018-10-30
+    # (https://git.centos.org/blobdiff/rpms!cloud-init.git/c60dcdee662fa585e0ef611c5cd5c48078259a68/SPECS!cloud-init.spec).
+    # The new rpm is in @updates repo as of 2019-01 and should be in the next GenericCloud image.
     with open('/var/lib/cloud/data/instance-id') as f:
         instance_id = f.read().rstrip()
     return instance_id
